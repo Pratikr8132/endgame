@@ -1,0 +1,90 @@
+#include <cuda_runtime.h>
+#include <iostream>
+__global__ void matmul(int *A, int *B, int *C, int N)
+{
+    int Row = blockIdx.y * blockDim.y + threadIdx.y;
+    int Col = blockIdx.x * blockDim.x + threadIdx.x;
+    if (Row < N && Col < N)
+    {
+        int Pvalue = 0;
+        for (int k = 0; k < N; k++)
+        {
+            Pvalue += A[Row * N + k] * B[k * N + Col];
+        }
+        C[Row * N + Col] = Pvalue;
+    }
+}
+int main()
+{
+    int N = 512;
+    int size = N * N * sizeof(int);
+    int *A, *B, *C;
+    int *dev_A, *dev_B, *dev_C;
+    cudaMallocHost(&A, size);
+    cudaMallocHost(&B, size);
+    cudaMallocHost(&C, size);
+    cudaMalloc(&dev_A, size);
+    cudaMalloc(&dev_B, size);
+    cudaMalloc(&dev_C, size);
+    // Initialize matrices A and B
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            A[i * N + j] = i * N + j;
+            B[i * N + j] = j * N + i;
+        }
+    }
+    cudaMemcpy(dev_A, A, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_B, B, size, cudaMemcpyHostToDevice);
+    dim3 dimBlock(16, 16);
+    dim3 dimGrid(N / dimBlock.x, N / dimBlock.y);
+    matmul<<<dimGrid, dimBlock>>>(dev_A, dev_B, dev_C, N);
+    cudaMemcpy(C, dev_C, size, cudaMemcpyDeviceToHost);
+    // Print the result
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+        {
+            std::cout << C[i * N + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+    // Free memory
+    cudaFree(dev_A);
+    cudaFree(dev_B);
+    cudaFree(dev_C);
+    cudaFreeHost(A);
+    cudaFreeHost(B);
+    cudaFreeHost(C);
+    return 0;
+}
+
+/*
+if gpu present
+nvcc hello_world.cu -o hello_world
+./hello_world
+
+This code performs matrix multiplication on the GPU using CUDA. Let's break down each part of the code and explain how it works:
+
+Libraries Used:
+#include <cuda_runtime.h>: This header includes CUDA runtime functions and structures required for CUDA programming.
+#include <iostream>: This standard C++ header is used for input-output operations.
+Kernel Function (matmul):
+__global__ void matmul(int *A, int *B, int *C, int N): This is a CUDA kernel function, denoted by __global__. It runs on the GPU and performs matrix multiplication.
+int Row = blockIdx.y * blockDim.y + threadIdx.y; and int Col = blockIdx.x * blockDim.x + threadIdx.x;: These lines calculate the global indices of the current thread within the 2D grid of blocks and threads.
+The kernel checks if the indices are within the matrix dimensions (N), and if so, it performs the matrix multiplication for the corresponding element (Pvalue) using a nested loop.
+The result (Pvalue) is stored in the output matrix C.
+Main Function:
+The main function initializes matrices A, B, and C on the CPU and allocates memory for them on both the CPU and GPU using cudaMallocHost and cudaMalloc.
+Matrices A and B are filled with data, representing two input matrices for multiplication.
+cudaMemcpy is used to transfer data from the CPU to the GPU memory (dev_A and dev_B).
+dim3 dimBlock(16, 16); and dim3 dimGrid(N / dimBlock.x, N / dimBlock.y);: These lines define the dimensions of CUDA blocks and grid. Each block has 16x16 threads, and the grid is configured to cover the entire matrix (N x N) with appropriate block dimensions.
+The matmul kernel is launched using <<<dimGrid, dimBlock>>>(dev_A, dev_B, dev_C, N);, specifying the grid and block dimensions and passing the matrices and size as arguments.
+After the kernel execution, the result matrix C is copied back from the GPU to the CPU using cudaMemcpyDeviceToHost.
+The result matrix C is then printed to the console.
+Compilation and Execution:
+The code includes instructions for compiling and executing CUDA code (nvcc hello_world.cu -o hello_world and ./hello_world).
+These commands are used with the NVIDIA CUDA compiler (nvcc) to compile the CUDA code into an executable (hello_world) and run it.
+Overall, the code demonstrates how to perform matrix multiplication on the GPU using CUDA, taking advantage of parallelism to accelerate computation compared to traditional CPU-based approaches.
+*/

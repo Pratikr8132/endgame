@@ -1,0 +1,172 @@
+#include <iostream>
+#include <cuda_runtime.h>
+
+using namespace std;
+
+__global__ void addVectors(int *A, int *B, int *C, int n)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n)
+    {
+        C[i] = A[i] + B[i];
+    }
+}
+
+int main()
+{
+    int n = 1000000;
+    int *A, *B, *C;
+    int size = n * sizeof(int);
+
+    // Allocate memory on the host
+    cudaMallocHost(&A, size);
+    cudaMallocHost(&B, size);
+    cudaMallocHost(&C, size);
+
+    // Initialize the vectors
+    for (int i = 0; i < n; i++)
+    {
+        A[i] = i;
+        B[i] = i * 2;
+    }
+
+    // Allocate memory on the device
+    int *dev_A, *dev_B, *dev_C;
+    cudaMalloc(&dev_A, size);
+    cudaMalloc(&dev_B, size);
+    cudaMalloc(&dev_C, size);
+
+    // Copy data from host to device
+    cudaMemcpy(dev_A, A, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_B, B, size, cudaMemcpyHostToDevice);
+
+    // Launch the kernel
+    int blockSize = 256;
+    int numBlocks = (n + blockSize - 1) / blockSize;
+    addVectors<<<numBlocks, blockSize>>>(dev_A, dev_B, dev_C, n);
+
+    // Copy data from device to host
+    cudaMemcpy(C, dev_C, size, cudaMemcpyDeviceToHost);
+
+    // Print the results
+    for (int i = 0; i < 10; i++)
+    {
+        cout << C[i] << " ";
+    }
+    cout << endl;
+
+    // Free memory
+    cudaFree(dev_A);
+    cudaFree(dev_B);
+    cudaFree(dev_C);
+    cudaFreeHost(A);
+    cudaFreeHost(B);
+    cudaFreeHost(C);
+
+    return 0;
+}
+
+/*
+
+IGNORE BELOOOOOOOOOOOOOOOWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW
+if gpu present
+nvcc hello_world.cu -o hello_world
+./hello_world
+
+
+
+
+This code demonstrates how to add two vectors using CUDA, which allows for parallel execution on the GPU. Let's break down the code and explain each part:
+
+Libraries Used:
+#include <iostream>: Standard C++ library for input-output operations.
+#include <cuda_runtime.h>: CUDA runtime library for CUDA programming.
+Kernel Function (addVectors):
+cpp
+Copy code
+__global__ void addVectors(int *A, int *B, int *C, int n)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < n)
+    {
+        C[i] = A[i] + B[i];
+    }
+}
+__global__: Indicates that this function runs on the GPU and is a CUDA kernel.
+blockIdx.x * blockDim.x + threadIdx.x: Calculates the global index of the current thread in the 1D grid of threads and blocks.
+The kernel checks if the index i is within the vector size (n) and performs element-wise addition of vectors A and B, storing the result in vector C.
+Main Function:
+cpp
+Copy code
+int main()
+{
+    int n = 1000000;
+    int *A, *B, *C;
+    int size = n * sizeof(int);
+
+    // Allocate memory on the host
+    cudaMallocHost(&A, size);
+    cudaMallocHost(&B, size);
+    cudaMallocHost(&C, size);
+
+    // Initialize the vectors
+    for (int i = 0; i < n; i++)
+    {
+        A[i] = i;
+        B[i] = i * 2;
+    }
+
+    // Allocate memory on the device
+    int *dev_A, *dev_B, *dev_C;
+    cudaMalloc(&dev_A, size);
+    cudaMalloc(&dev_B, size);
+    cudaMalloc(&dev_C, size);
+
+    // Copy data from host to device
+    cudaMemcpy(dev_A, A, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_B, B, size, cudaMemcpyHostToDevice);
+
+    // Launch the kernel
+    int blockSize = 256;
+    int numBlocks = (n + blockSize - 1) / blockSize;
+    addVectors<<<numBlocks, blockSize>>>(dev_A, dev_B, dev_C, n);
+
+    // Copy data from device to host
+    cudaMemcpy(C, dev_C, size, cudaMemcpyDeviceToHost);
+
+    // Print the results
+    for (int i = 0; i < 10; i++)
+    {
+        cout << C[i] << " ";
+    }
+    cout << endl;
+
+    // Free memory
+    cudaFree(dev_A);
+    cudaFree(dev_B);
+    cudaFree(dev_C);
+    cudaFreeHost(A);
+    cudaFreeHost(B);
+    cudaFreeHost(C);
+
+    return 0;
+}
+n = 1000000 sets the size of the vectors.
+Memory is allocated for vectors A, B, and C on both the host and the device using cudaMallocHost and cudaMalloc.
+Vectors A and B are initialized with values.
+Memory is allocated for vectors dev_A, dev_B, and dev_C on the GPU using cudaMalloc.
+Data is copied from host to device using cudaMemcpy.
+The kernel (addVectors) is launched with appropriate block and grid dimensions.
+Data is copied back from the device to the host.
+Results are printed (first 10 elements).
+Memory is freed using cudaFree and cudaFreeHost.
+Compilation and Execution:
+sh
+Copy code
+nvcc hello_world.cu -o hello_world
+./hello_world
+nvcc: NVIDIA CUDA compiler command.
+Compiles the CUDA code (hello_world.cu) into an executable (hello_world).
+Executes the program to add vectors on the GPU.
+Overall, this code demonstrates how to perform vector addition using CUDA, leveraging the parallel processing capabilities of the GPU for computational acceleration.
+*/
